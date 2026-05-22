@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🏠 空き家相談ボット（テスト）</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Hiragino Sans', 'Meiryo', sans-serif;
+      font-size: 14px;
+      background: #f0f2f5;
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+    }
+
+    /* ── ヘッダー ── */
+    #header {
+      background: linear-gradient(135deg, #4A4E8E 0%, #6B5EA8 50%, #8B6BB5 100%);
+      color: white;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    #header h1 { font-size: 16px; font-weight: bold; }
+    .header-buttons { display: flex; gap: 8px; }
+    .header-btn {
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.4);
+      color: white;
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .header-btn:hover { background: rgba(255,255,255,0.35); }
+
+    /* ── ステータスバー ── */
+    #status-bar {
+      background: #fff;
+      border-bottom: 1px solid #ddd;
+      padding: 6px 16px;
+      font-size: 12px;
+      color: #666;
+      flex-shrink: 0;
+    }
+
+    /* ── テンプレートボタン ── */
+    #template-area {
+      background: #fff;
+      border-bottom: 1px solid #eee;
+      padding: 8px 12px;
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      flex-shrink: 0;
+      scrollbar-width: none;
+    }
+    #template-area::-webkit-scrollbar { display: none; }
+    .tmpl-btn {
+      white-space: nowrap;
+      background: #f0eefa;
+      border: 1px solid #c9bff0;
+      color: #4A4E8E;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .tmpl-btn:hover { background: #e0d8f8; }
+
+    /* ── チャットエリア ── */
+    #chat-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .msg-row { display: flex; }
+    .msg-row.user { justify-content: flex-end; }
+    .msg-row.bot  { justify-content: flex-start; }
+
+    .bubble {
+      max-width: 75%;
+      padding: 10px 14px;
+      border-radius: 16px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .msg-row.user .bubble {
+      background: #6B5EA8;
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+    .msg-row.bot .bubble {
+      background: white;
+      color: #333;
+      border-bottom-left-radius: 4px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    /* タイピング */
+    .typing-dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #aaa;
+      margin: 0 2px;
+      animation: blink 1.2s infinite;
+    }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes blink {
+      0%,80%,100% { opacity: 0.2; transform: scale(0.8); }
+      40%          { opacity: 1;   transform: scale(1.1); }
+    }
+
+    /* ── 入力エリア ── */
+    #input-area {
+      background: #fff;
+      border-top: 1px solid #ddd;
+      padding: 10px 12px;
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+      flex-shrink: 0;
+    }
+    #user-input {
+      flex: 1;
+      border: 1px solid #ccc;
+      border-radius: 20px;
+      padding: 10px 14px;
+      font-size: 14px;
+      resize: none;
+      outline: none;
+      max-height: 120px;
+      overflow-y: auto;
+      line-height: 1.5;
+    }
+    #user-input:focus { border-color: #6B5EA8; }
+    #send-btn {
+      background: linear-gradient(135deg, #4A4E8E, #8B6BB5);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 42px; height: 42px;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    #send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+
+<!-- ヘッダー -->
+<div id="header">
+  <h1>🏠 空き家相談ボット（テスト）</h1>
+  <div class="header-buttons">
+    <button class="header-btn" onclick="updateData()">🔄 更新</button>
+    <button class="header-btn" onclick="resetChat()">🗑️ リセット</button>
+  </div>
+</div>
+
+<!-- ステータスバー -->
+<div id="status-bar">📄 データ読み込み中...</div>
+
+<!-- テンプレートボタン -->
+<div id="template-area">
+  <button class="tmpl-btn" onclick="sendTemplate('空き家の相談はどこにすればいいですか？')">相談窓口は？</button>
+  <button class="tmpl-btn" onclick="sendTemplate('空き家を売りたいのですが手続きを教えてください')">売りたい</button>
+  <button class="tmpl-btn" onclick="sendTemplate('空き家バンクに登録するには？')">空き家バンク</button>
+  <button class="tmpl-btn" onclick="sendTemplate('空き家の管理で困っています')">管理の悩み</button>
+  <button class="tmpl-btn" onclick="sendTemplate('補助金や助成金はありますか？')">補助金</button>
+</div>
+
+<!-- チャットエリア -->
+<div id="chat-area"></div>
+
+<!-- 入力エリア -->
+<div id="input-area">
+  <textarea id="user-input" rows="1" placeholder="質問を入力してください..."
+    onkeydown="handleKeyDown(event)" oninput="autoResize(this)"></textarea>
+  <button id="send-btn" onclick="sendMessage()">➤</button>
+</div>
+
+<script>
+  // ★ 設定（ここを変えるだけでアプリが変わる）
+  const STORAGE_KEY_DOC     = 'test_doc_content';
+  const STORAGE_KEY_HISTORY = 'test_chat_history';
+  const STORAGE_KEY_UPDATED = 'test_last_updated';
+
+  let docContent   = '';
+  let chatHistory  = [];
+  let isLoading    = false;
+
+  // ── 初期化 ──
+  window.addEventListener('DOMContentLoaded', () => {
+    loadFromStorage();
+    if (!docContent) {
+      fetchDocFromServer();
+    }
+    renderHistory();
+    appendBubble('bot', 'こんにちは！空き家に関するご相談をお気軽にどうぞ😊\n上のボタンからよくある質問を選ぶこともできます。');
+  });
+
+  // ── localStorageから読み込み ──
+  function loadFromStorage() {
+    docContent  = localStorage.getItem(STORAGE_KEY_DOC)     || '';
+    chatHistory = JSON.parse(localStorage.getItem(STORAGE_KEY_HISTORY) || '[]');
+    const updated = localStorage.getItem(STORAGE_KEY_UPDATED);
+    if (updated) {
+      setStatus(`✅ データ読み込み済み（${updated}）`);
+    }
+  }
+
+  // ── サーバー（Vercelのapi/getDoc）からドキュメント取得 ──
+  async function fetchDocFromServer() {
+    setStatus('📄 最新データを取得中...');
+    try {
+      const res  = await fetch('/api/getDoc');
+      const data = await res.json();
+      if (data.content) {
+        docContent = data.content;
+        const now  = new Date().toLocaleString('ja-JP');
+        localStorage.setItem(STORAGE_KEY_DOC, docContent);
+        localStorage.setItem(STORAGE_KEY_UPDATED, now);
+        setStatus(`✅ データ更新完了（${now}）`);
+      } else {
+        setStatus('⚠️ データ取得失敗：' + (data.error || '不明なエラー'));
+      }
+    } catch (e) {
+      setStatus('⚠️ 通信エラー：' + e.message);
+    }
+  }
+
+  // ── 強制更新 ──
+  async function updateData() {
+    localStorage.removeItem(STORAGE_KEY_DOC);
+    localStorage.removeItem(STORAGE_KEY_UPDATED);
+    docContent = '';
+    await fetchDocFromServer();
+  }
+
+  // ── チャットリセット ──
+  function resetChat() {
+    if (!confirm('チャット履歴をリセットしますか？')) return;
+    chatHistory = [];
+    localStorage.removeItem(STORAGE_KEY_HISTORY);
+    document.getElementById('chat-area').innerHTML = '';
+    appendBubble('bot', 'チャット履歴をリセットしました。新しいご質問をどうぞ😊');
+  }
+
+  // ── メッセージ送信 ──
+  async function sendMessage() {
+    const input = document.getElementById('user-input');
+    const text  = input.value.trim();
+    if (!text || isLoading) return;
+
+    input.value = '';
+    autoResize(input);
+    isLoading   = true;
+    document.getElementById('send-btn').disabled = true;
+
+    appendBubble('user', text);
+    scrollToMessage('last-user');
+
+    chatHistory.push({ role: 'user', content: text });
+    saveHistory();
+
+    const typingId = showTyping();
+
+    try {
+      const res  = await fetch('/api/chat', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ messages: chatHistory, docContent }),
+      });
+      const data = await res.json();
+      removeTyping(typingId);
+
+      const reply = data.reply || data.error || '申し訳ありません、エラーが発生しました。';
+      appendBubble('bot', cleanMarkdown(reply));
+      chatHistory.push({ role: 'assistant', content: reply });
+      saveHistory();
+    } catch (e) {
+      removeTyping(typingId);
+      appendBubble('bot', '⚠️ 通信エラーが発生しました：' + e.message);
+    }
+
+    isLoading = false;
+    document.getElementById('send-btn').disabled = false;
+  }
+
+  // ── テンプレートボタン ──
+  function sendTemplate(text) {
+    document.getElementById('user-input').value = text;
+    sendMessage();
+  }
+
+  // ── バブル追加 ──
+  function appendBubble(role, text) {
+    const area = document.getElementById('chat-area');
+    const row  = document.createElement('div');
+    row.className = `msg-row ${role}`;
+    row.innerHTML = `<div class="bubble">${escapeHtml(text)}</div>`;
+    area.appendChild(row);
+    area.scrollTop = area.scrollHeight;
+    return row;
+  }
+
+  // ── タイピング表示 ──
+  function showTyping() {
+    const area = document.getElementById('chat-area');
+    const row  = document.createElement('div');
+    const id   = 'typing-' + Date.now();
+    row.id     = id;
+    row.className = 'msg-row bot';
+    row.innerHTML = `<div class="bubble"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>`;
+    area.appendChild(row);
+    area.scrollTop = area.scrollHeight;
+    return id;
+  }
+  function removeTyping(id) {
+    const el = document.getElementById(id);
+    if (el) el.remove();
+  }
+
+  // ── スクロール ──
+  function scrollToMessage(target) {
+    const chatArea = document.getElementById('chat-area');
+    if (target === 'last-user') {
+      const userMessages = chatArea.querySelectorAll('.msg-row.user');
+      if (userMessages.length > 0) {
+        const last   = userMessages[userMessages.length - 1];
+        const msgTop = last.offsetTop - chatArea.offsetTop;
+        chatArea.scrollTo({ top: msgTop - 16, behavior: 'smooth' });
+      }
+    }
+  }
+
+  // ── cleanMarkdown ──
+  function cleanMarkdown(text) {
+    return text
+      .replace(/#{1,6}\s/g, '')
+      .replace(/\*\*(.+?)\*\*/g, '$1')
+      .replace(/\*(.+?)\*/g, '$1')
+      .replace(/`{1,3}(.+?)`{1,3}/g, '$1')
+      .replace(/^\s*[-*+]\s/gm, '・')
+      .replace(/^\s*\d+\.\s/gm, '・')
+      .trim();
+  }
+
+  // ── その他ユーティリティ ──
+  function escapeHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+  }
+  function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  }
+  function handleKeyDown(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  }
+  function setStatus(msg) {
+    document.getElementById('status-bar').textContent = msg;
+  }
+  function saveHistory() {
+    localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(chatHistory.slice(-20)));
+  }
+  function renderHistory() {
+    // ページ再読み込み時の履歴表示（今回はシンプルに省略）
+  }
+</script>
+</body>
+</html>
