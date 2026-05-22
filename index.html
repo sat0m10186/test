@@ -273,7 +273,7 @@
     document.getElementById('send-btn').disabled = true;
 
     appendBubble('user', text);
-    scrollToMessage('last-user');
+    setTimeout(() => scrollToMessage('last-user'), 50);
 
     chatHistory.push({ role: 'user', content: text });
     saveHistory();
@@ -315,7 +315,11 @@
     row.className = `msg-row ${role}`;
     row.innerHTML = `<div class="bubble">${escapeHtml(text)}</div>`;
     area.appendChild(row);
-    area.scrollTop = area.scrollHeight;
+    // ユーザーメッセージは scrollToMessage で制御するためここでは自動スクロールしない
+    // ボット返答は一番下にスクロール
+    if (role === 'bot') {
+      area.scrollTop = area.scrollHeight;
+    }
     return row;
   }
 
